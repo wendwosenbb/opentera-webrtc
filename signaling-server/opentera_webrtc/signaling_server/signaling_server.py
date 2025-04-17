@@ -232,10 +232,21 @@ async def handle_close_all_peer_connections(from_id):
 
 
 async def get_ice_servers(request: web.Request):
-    if 'Authorization' in request.headers and _isAuthorized(request.headers['Authorization']):
-        return web.json_response(ice_servers)
-    else:
-        return web.json_response([])
+    try:
+        logger.info("Received request for /iceservers")
+        auth = request.headers.get('Authorization', None)
+        logger.info(f"Authorization header: {auth}")
+
+        if auth and _isAuthorized(auth):
+            logger.info("Authorized. Sending ICE servers.")
+            return web.json_response(ice_servers)
+        else:
+            logger.info("Unauthorized or no password. Sending empty list.")
+            return web.json_response([])
+
+    except Exception as e:
+        logger.error(f"Error in /iceservers handler: {e}")
+        return web.Response(status=500, text='Internal Server Error')
 
 
 async def on_shutdown(app):
@@ -306,6 +317,7 @@ def main(other_routes=None):
         with args.ice_servers.open() as file:
             global ice_servers
             ice_servers = json.load(file)
+            logger.info(f"Loaded ICE servers: {ice_servers}")
 
     # Create route to get iceservers
     app.add_routes([web.get('/iceservers', get_ice_servers),
